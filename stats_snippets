@@ -61,5 +61,22 @@ def mean_confidence_interval(x, alpha=0.05):
                             loc=xbar,
                             scale=standard_error)   
   
-  
 
+"""
+   Huber Regression - Robust Stats 
+   def excludeOutliers(data, m):
+        return data[abs(data - np.mean(data)) <= m*np.std(data)]     
+"""
+def HuberReg(X)
+    colors = ['r-', 'b-', 'y-', 'm-']
+
+    x = np.linspace(X.min(), X.max(), 7)
+    epsilon_values = [1.35, 1.5, 1.75, 1.9]
+    for k, epsilon in enumerate(epsilon_values):
+        huber = HuberRegressor(fit_intercept=True, alpha=0.0, max_iter=100,
+                               epsilon=epsilon)
+
+        huber.fit(X, y)
+        coef_ = huber.coef_ * x + huber.intercept_
+        plt.plot(x, coef_, colors[k], label="huber loss, %s" % epsilon)
+    
