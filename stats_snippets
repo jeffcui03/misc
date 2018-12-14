@@ -1,0 +1,65 @@
+"""This function is used to calcuation the mean of a normal distribution
+
+import scipy.stats as stats
+import numpy as np
+
+def mean_confidence_interval(x, alpha=0.05):
+    """
+    
+
+
+
+"""JSON Export a scikit-learn Pipeline object
+   Use with GridSearchCV, TPOT, etc
+   Example:
+   
+   best_model = GridSearchCV(
+                some_pipeline,
+                param_grid=some_tuning_parameters
+   )
+   best_model.fit(X=train_x, y=train_y)
+   export_pipeline(best_model.best_estimator_)
+  
+   :param scikit_pipeline: a scikit-learn Pipeline object
+"""
+import json
+
+def fullname(o):
+   return o.__module__ + "." + o.__class__.__name__
+  
+def export_pipeline(scikit_pipeline):
+  steps_obj = {'steps':[]}
+  for name, md in scikit_pipeline.steps:
+      steps_obj['steps'].append({
+          'name': name,
+          'class_name': fullname(md),
+          'params': md.get_params()
+      })
+    
+  return steps_obj
+  
+
+
+"""
+   Confidence Interal for the mean of a Normal distribution
+"""
+from scipy import stats
+import numpy as np
+
+def mean_confidence_interval(x, alpha=0.05):
+    """Computes two-sided confidence interval for a Normal mean
+    
+    Assumes population variance is unknown.
+    
+    x is assumed to be a list or a 1-d Numpy array
+    """
+    n = len(x)
+    xbar = np.mean(x)
+    standard_error=stats.sem(x)
+    return stats.t.interval(1 - alpha,
+                            n - 1,
+                            loc=xbar,
+                            scale=standard_error)   
+  
+  
+
