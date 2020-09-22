@@ -1,0 +1,10 @@
+ssh-keygen -t rsa
+ssh <user>@<hostname> mkdir -p ~/.ssh
+cat ~/.ssh/id_rsa.pub | ssh <user>@<hostname> 'cat >>~/.ssh/authorized_keys'
+
+
+for i in 10 11 12 13 14 15; do echo ---TESTBOX @i ---; ssh <user>@<testbox>$i 'lsof -i -n -P' 2>/dev/null | grep LISTEN; done
+
+#find the total size of each subdirectory("data1", "data2", "data3", ....) under /home/<user>/datasets
+for i in 1 2 3 4 5; do echo ---TESTBOX @i ---; ssh <user>@<testbox>$i 'du -h -max-depth=1 /home/<user>/datasets' 2>/dev/null; done
+
