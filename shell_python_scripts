@@ -14,4 +14,5 @@ Install a new kernel in "ml-python37" environment
 source activate ml_python37
 (ml_python37) ipython kernel --user --name="KerasTF"
 
+Reinstall Jupyter is the solution to this problem
 https://stackoverflow.com/questions/38221181/no-module-named-tensorflow-in-jupyter
