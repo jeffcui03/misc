@@ -9,4 +9,5 @@ for i in 10 11 12 13 14 15; do echo ---TESTBOX @i ---; ssh <user>@<testbox>$i 'l
 for i in 1 2 3 4 5; do echo ---TESTBOX @i ---; ssh <user>@<testbox>$i 'du -h -max-depth=1 /home/<user>/datasets' 2>/dev/null; done
 
 Install a new kernel in "ml-python37" environment
-python -m ipykernel install --user --name ml_python37 --display-name="Python 3.7" 
+source activate ml_python37
+(ml_python37) ipython kernel --user --name="KerasTF"
