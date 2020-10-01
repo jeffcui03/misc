@@ -1,3 +1,15 @@
+https://git-lfs.github.com for BLOB file
+
+wget --user=jeffcui-3 --ask-password --no-check-certificate https://github.com/.../GoogleNews-...bin.gz 
+
+or downloading from browser with raw=true
+https://github.com/.../GoogleNews..bin.gz?raw=true
+
+file <BLOB file> 
+xxd <large binary file> | head
+
+alias ssh='ssh -o TCPKeepAlive=yes -o ServerAliveInterval=50'
+
 ssh-keygen -t rsa
 ssh <user>@<hostname> mkdir -p ~/.ssh
 cat ~/.ssh/id_rsa.pub | ssh <user>@<hostname> 'cat >>~/.ssh/authorized_keys'
