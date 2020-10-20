@@ -1,0 +1,64 @@
+""" Jupyter Notebook Download Package or Model from internet without SSL certificate
+import requests
+requests.packages.urllib3.disable_warnings()
+import ssl
+
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    # Legacy Python that doesn't verify HTTPS certificates by default
+    pass
+else:
+    # Handle target environment that doesn't support HTTPS verification
+    ssl._create_default_https_context = _create_unverified_https_context
+
+
+""" Plot 3 line
+
+import numpy as np 
+import matplotlib.pyplot as plt 
+
+f = lambda x: 0.1*x**5 - 0.2*x**3 + 0.1*x - 0.2
+h = 0.05
+x = np.linspace(0,1,11) 
+
+# Central differences approximation
+dfc1 = (f(x+h) - f(x-h))/(2*h)
+dfc2 = (f(x+h) - 2*f(x) + f(x-h)) / h**2
+print(('f\' ={}').format(dfc1))
+print(('f\'\'={}').format(dfc2))
+
+plt.plot(x,f(x),'-k', x,dfc1,'--b', x,dfc2,'-.r')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend(['f(x)','f \'(x)','f \'\'(x)'])
+#plt.grid()
+plt.show()
+
+""" Timer function #1
+
+def timer(f):
+    def g(*args, **kwargs):
+        start = time.time()
+        result = f(*args, **kwargs)
+        elapsed = time.time() - start
+        return result, elapsed
+    return g
+    
+def f(n=1000000):
+    s = sum([x*x for x in range(n)])
+    return s
+
+timed_func = timer(f)
+
+timed_func()
+
+
+""" Timer function #2
+def timer2(f, *args, **kwargs):
+    start = time.time()
+    result = f(*args, **kwargs)
+    elapsed = time.time() - start
+    return result, elapsed
+
+timer2(f)
