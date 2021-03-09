@@ -1,3 +1,8 @@
+np.set_printoptions(precision=6)
+pd.options.display.float_format='{:, .6f}'.format
+
+
+
 """ Jupyter Notebook Download Package or Model from internet without SSL certificate
 import requests
 requests.packages.urllib3.disable_warnings()
