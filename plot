@@ -1,3 +1,13 @@
+===================================================================================================
+Floating Point for pandas and numpy
+
+np.set_printoptions(precision=6)
+#pd.options.display.float_format = '{:, .6f}'.format  This one might be causing issues during calculation
+pd.reset_option('display.float_format')
+
+=========================================================================================================
+
+
 ====================================================================================================
 #Remove "," in number
 #index_col=False, cannot use index_col=None if there is , at the end of the each line in the input file
