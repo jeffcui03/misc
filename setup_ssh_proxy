@@ -1,0 +1,19 @@
+on Windows
+C:\Program Files\PuTTY> plink -sshlog putty.log "Proxy Server"
+
+on Linux, set up SSH tunneling to <proxy hostname>
+$ssh -o TCPKeepAlive=yes -o ServerAliveInterval=50 -4 -N -F empty -L 7777:34.227.210.114:22 -l cuix <provide proxy hostname>
+
+After the proxy server is started and SSH tunneling is enabled, application connects to a port(7777) on the local host(127.0.0.1)
+$ssh -p7777 -lcuix 127.0.0.1
+
+-N => no bash shell on the other side
+-F => ssh config, we created an empty ssh_config locally
+-L => port 10101, set up local server on port 10101 as proxy to Data server at 34.227.210.114:22
+-l => cuix, 
+sleep 15 => to give us time to connect to port 10101 at local server before it gets shut down, i.e. run the following commands 
+
+
+$ssh -l cuix -p 101101 127.0.0.1  
+or copy file from DATA server to local server
+$ssh -l cuix -p 10101 127.0.0.1 'cat /x/cuix/starmap.tar' > starmap.tar
