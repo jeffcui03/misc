@@ -1,3 +1,5 @@
+https://app.gumroad.com/d/b5ea62d893b614949f58b41d0865bfe5
+
 np.set_printoptions(precision=6)
 pd.options.display.float_format='{:, .6f}'.format
 
