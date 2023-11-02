@@ -1,6 +1,8 @@
 ==========Convert timestamp from string to usec =========================================================
 
+#Default "chTm" is usec format
 def chTm2Usec(chTm):
+    #uncomment when input is nsec
     #subStr=chTm[:-3]
     #print "input=",chTm
     try:
