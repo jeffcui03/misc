@@ -1,3 +1,29 @@
+==========Convert timestamp from string to usec =========================================================
+
+def chTm2Usec(chTm):
+    #subStr=chTm[:-3]
+    #print "input=",chTm
+    try:
+        if chTm.find('.') != -1:
+            tm = datetime.strptime(chTm, '%H:%M:%S.%f')
+        else:
+            tm = datetime.strptime(chTm, '%H:%M:%S')
+        usecs=tm.hour*3600000000 + tm.minute*60000000+ tm.second*1000000 +  tm.microsecond
+        return usecs*1000
+    except ValueError:
+        print("Exception: ", chTm)
+        return 0
+    
+    
+mktOpen = chTm2Usec('09:30:00')
+mktClose = chTm2Usec('16:00:00.000000')
+print("mktOpen={}, mktClose={}".format(mktOpen, mktClose))
+
+
+=======================================================================================================
+
+
+==================================================================================================================
 #Realized _r
 #High _h
 #Low _l
