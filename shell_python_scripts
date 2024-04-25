@@ -28,3 +28,202 @@ source activate ml_python37
 
 Reinstall Jupyter is the solution to this problem
 https://stackoverflow.com/questions/38221181/no-module-named-tensorflow-in-jupyter
+
+
+==================================================================================================================
+The env file defines a shell function qcores, which uses the output of lscpu to pick a random sequence of cores allowed by the host's q license:
+
+HALQ & QINIT can be set independently: these two environment variables will allow the .sys namespace to be loaded
+in a different q environment (an environment with its own q initialization via different QHOME and QLIC variables)
+
+The env file defines a shell function qcores, which uses the output of lscpu to pick a random sequence of cores allowed by the host's q license:
+
+> lscpu|grep 'NUMA node[0-9]'
+NUMA node0 CPU(s):   0-7,64-71
+NUMA node1 CPU(s):   8-15,72-79
+NUMA node2 CPU(s):   16-23,80-87
+NUMA node3 CPU(s):   24-31,88-95
+NUMA node4 CPU(s):   32-39,96-103
+NUMA node5 CPU(s):   40-47,104-111
+NUMA node6 CPU(s):   48-55,112-119
+NUMA node7 CPU(s):   56-63,120-127
+
+
+> echo $QCORES
+8
+
+> qcores
+32-39
+
+> qcores
+40-47
+
+
+The output of qcores is used in another shell function qbind to create the command to invoke q
+> qbind
+/usr/bin/numactl --all --interleave=all --physcpubind=16-23 /home/hal/q/version/4.0/l64/q
+
+> qbind
+/usr/bin/numactl --all --interleave=all --physcpubind=48-55 /home/hal/q/version/4.0/l64/q
+
+
+The final shell function: q uses the above to start a q session with command-line editing via rlwrap if that utility is available.
+
+
+The env file also sets maximum allowable open file handles via:
+
+ulimit -n $(ulimit -n -H)
+
+Licence directory
+The q/ folder has a licence directory with a subdirectory for each host name with a colon-separated suffix of the number of licenced cores.
+The env file matches the hostname and derives the number of licenced cores:
+
+if=${HALQ}/q/lic/$(hostname)
+if   [ -e ${f}:2  ]; then k=2;
+elif [ -e ${f}:4  ]; then k=4;
+elif [ -e ${f}:6  ]; then k=6;
+elif [ -e ${f}:8  ]; then k=8;
+elif [ -e ${f}:12 ]; then k=12;
+else echo "Unable to find license dir: ${f}:[n]";
+fi
+
+
+System utilities
+The env file defines the name of the q initialization file via
+export QINIT=${HALQ}/q/sys/q.q
+The q.q script in turn, loads additional .q scripts, deriving their full path from the directory part of the q.q file
+and error-trapping each load to allow for printing error messages without inhibiting the q startup or the loading of subsequent q scripts:
+
+
+> cat sys/q.q
+{$[(e:getenv`QINIT)like""; -2"Environment variable: QINIT not defined";
+   {@[system;x;{-2"Unable to load: ",x,"\n",y;}2_x]}'[("l ",1_string` sv first[` vs `$":",e],)'[x]]];}
+ (`util.q;      /utilities
+  `file.q;      /interacting with the file system
+  `arg.q;       /command-line arguments to q scripts
+  `db.q;        /utilities for database loads, enumeration, etc.
+  `link.q;      /utilities for linking partitioned databases
+  `mail.q;      /sending mail from q session, job completion, etc.
+  `match.q;     /utilities for symbol suffixes, cusip check digit, etc used to match identifiers
+  `wrds.q)      /sending commands via ssh to WRDS server,retrieving files etc.
+
+This loads 100+ utilities in the .sys context:
+
+
+q){0N 7#x,(7-count[x]mod 7)#`}1_key .sys
+halq       home       qinit      init      reinit    define1   define
+which      scriptpath scriptload script    halreport recent1   recent2
+recent3    recent     str        xstr      fstr      mstr      msg
+banner     comma      perm       sleep     taskset   readlink  trap
+getsheet   guid       host       hostname  hostopen  taskauth  task
+chmod      ls         tree       filetype  filetree  filelist  files
+dirs       rm         rmdir      mount     redirect  writeflag modtime
+rename     movetemp   move       movework  movepart  tempmask  mktemp
+tempdir    temp
+file   gzip       zinfo     zpct      split     wrap
+getarg     defread    defsave    deflist   default   usage     arg
+syminit    symset     symcopy    enumadd   remap     enumtype  enumcols
+reset      renumcol   renum      hstr      badlinks  datedir   datemap
+empty      enumname   partinfo   linkcmd   linkname  linkpath  linkbase
+linkfill   linkdate   link       linkmidas attach    mail      suffix
+cusipdigit cusip9     soundex    wrdshost  wrdscmd   wrds      wrdstemp
+wrdsfile
+
+
+q)key .sys.init`config
+`s#`host.txt`idc.txt`suffix.txt`wrds.txt
+
+q)"\t"vs'3#read0 .sys.init`config`host.txt
+"id" "hal" "cores" "memory" "ip"            "host"
+,"1" ,"1"  ,"6"    "1081"   "172.31.35.161" "nqaus01"
+,"2" ,"1"  ,"4"    "1081"   "172.31.35.162" "nqaus02"
+
+
+Erasing most of the .sys namespace and re-initializing:
+
+q).sys:(key[.sys]except`reinit`qinit)_.sys
+
+q).sys
+qinit | {$[count w:getenv`QINIT;hsym`$w;'"QINIT environment variable not defi..
+reinit| {system"l ",1_string qinit[]}
+
+q).sys.reinit[]
+
+q).sys.msg"restored"
+2024.04.10 06:34:17 - restored
+
+Loading databases and scripts 
+
+sys/util.q defines functions to aid in loading and reloading databases and scripts:
+
+
+define: define database(s) in q session. uses \l path for partitioned database but otherwise does not alter current directory for databases that are in-memory tables only or in-memory and splayed, allowing for multiple databases in one q session.
+
+recent: shows most recent dates for given database, along with record counts
+
+script: loads script(s) from ${HALQ}/script directory
+
+Loading Midas, CRSP & TAQ databases:
+
+).sys.define`midas`crsp`taq
+
+q)3#select from trade_direct where date=last date
+date       ticker extime               mtime                seq     src oid  ..
+-----------------------------------------------------------------------------..
+2024.04.05 A      0D04:44:14.208705000 0D04:44:14.209092000 1909329 A   0    ..
+2024.04.05 A      0D04:44:14.208705000 0D04:44:14.209092000 1909330 A   38953..
+2024.04.05 A      0D04:44:14.429439000 0D04:44:14.429807000 1909392 A   27000..
+
+q)3#select from taq.ticker
+ticker date       symbol qsymbol active prevticker exchange tape status test ..
+-----------------------------------------------------------------------------..
+A      2010.11.18 A      A       1                 N        A           0    ..
+A      2015.11.20 A      A       1                 N        A           0    ..
+A      2015.11.23 A      A       1                 N        A           0    ..
+
+q)3#select id,date,cusip,symbol from crsp.id
+id    date       cusip     symbol
+---------------------------------
+10000 1986.01.07 683916100 OMFGA
+10000 1986.12.04 683916100 OMFAC
+10000 1987.03.10 683916100 OMFGA
+q).sys.recent`otc
+OTC: date | active new inactive changed
+----------| ---------------------------
+2024.03.04| 20778  14  7        25
+2024.03.05| 20776  2   8        25
+2024.03.06| 20783  8   1        30
+
+2024.03.07| 20792  7   1        19
+2024.03.08| 20794  6   5        29
+
+q).sys.recent`cat
+CAT: date | active new inactive changed
+----------| ---------------------------
+2024.04.03| 28571  12  8        29
+2024.04.04| 28567  10  16       18
+2024.04.05| 28568  19  19       28
+2024.04.08| 28569  15  17       20
+2024.04.09| 28567  7   9        14
+
+
+===============================================================
+cron job set up
+================================================================================================
+ENV=/home/<user>/q/env
+MAILTO=<user>@gmail.com
+# run TAQ master update 5am Mon-Sat
+0   5 * * 1-6 . $ENV; $Q ${HALQ}/taq/q/load.q    -q -main 1 -retrieve 1 &>> ${HALQ}/taq/log/load.log
+
+
+
+
+
+
+
+
+
+
+
+
+
