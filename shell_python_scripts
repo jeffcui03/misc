@@ -29,6 +29,9 @@ source activate ml_python37
 Reinstall Jupyter is the solution to this problem
 https://stackoverflow.com/questions/38221181/no-module-named-tensorflow-in-jupyter
 
+rename everyfile from imbl.csv to imbl2.csv, i.e. KLAC_imbl.csv to KLAC_imbl2.csv; please note "sed" takes {} as input unless one uses "echo" to provide input file name
+for file in *imbl.csv; do mv $file `echo $file | sed "s/imbl/imbl2/"`; done
+
 
 ==================================================================================================================
 The env file defines a shell function qcores, which uses the output of lscpu to pick a random sequence of cores allowed by the host's q license:
