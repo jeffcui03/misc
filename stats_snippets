@@ -80,3 +80,382 @@ def HuberReg(X)
         coef_ = huber.coef_ * x + huber.intercept_
         plt.plot(x, coef_, colors[k], label="huber loss, %s" % epsilon)
     
+#ifndef ALIGN_H_23939445851010928567
+#define ALIGN_H_23939445851010928567
+#include <vector>
+#include <string>
+using namespace std;
+
+struct TRADE{
+	long long timestamp;
+	float price;
+	long volume;
+	string ID;
+};
+
+struct MATCH{
+	MATCH(size_t ifirm, size_t imarket, double td) :iFirm(ifirm), iMarket(imarket), timeDiff(td){}
+	MATCH() :iFirm(0), iMarket(0), timeDiff(0){}
+	size_t iFirm; //index to the firm data
+	size_t iMarket; //index to the market vector
+	double timeDiff; //time difference of the market and firm trades
+};
+
+struct GaussianPara{
+	GaussianPara(double m, double s, size_t n) : mu(m), sigma(s), nLen(n){};
+
+	double mu;
+	double sigma;
+	size_t nLen;
+};
+
+double mean(vector<double>& in);
+double variance(vector<double>& in);
+GaussianPara oddMatch(vector<long long>& vFirmTimeStamp, vector<float>& vFirmPrice, vector<long>& vFirmVol,
+	vector<long long>& vMarketTimeStamp, vector<float>& vMarketPrice, vector<long>& vMarketVol, int winsize = 1000);
+GaussianPara EM_estimator(vector<vector<double> >& tmpTD,long nRecord);
+
+void align(vector<long long>& vFirmTimeStamp, vector<float>& vFirmPrice, vector<long>& vFirmVol, vector<string>& vFirmID,
+	vector<long long>& vMarketTimeStamp, vector<float>& vMarketPrice, vector<long>& vMarketVol, vector<string>& vMarketID,
+	vector<size_t>& vFirmInx, vector<size_t>& vMarketInx, vector<double>& vTimeDiff, int winsize = 1000);
+void alignFuncForward(vector<vector<size_t> >& candidates, vector<vector<double> >& timeDiff, double mu, double sigma, vector<size_t>& vFirmInx, vector<size_t>& vMarketInx, vector<double>& vTimeDiff);
+void alignwrapper(std::vector<TRADE>& vFirm, std::vector<TRADE>& vMarket, vector<MATCH>& output, int winsize=1000);
+void readData(const string& filename, vector<TRADE>& vData);
+void test();
+#endif
+
+// align.cpp : Defines the entry point for the console application.
+//
+#include <iostream>
+#include <vector>
+#include <math.h> 
+#include <climits>
+#include <stdexcept>
+#include <fstream>
+#include <sstream>
+#include <ctime>
+#include "align.h"
+
+using namespace std;
+
+double mean(vector<double>& in)
+{
+	double output = 0;
+	for (size_t ii = 0; ii < in.size(); ++ii){
+		output += in[ii];
+	}
+	return output / in.size();
+}
+
+double variance(vector<double>& in)
+{
+	double avg = mean(in);
+	double sqsum = 0;
+	for (size_t ii = 0; ii < in.size(); ++ii){
+		sqsum += in[ii] * in[ii];
+	}
+	return sqsum / in.size() - avg*avg;
+}
+
+GaussianPara oddMatch(vector<long long>& vFirmTimeStamp, vector<float>& vFirmPrice, vector<long>& vFirmVol,
+	vector<long long>& vMarketTimeStamp, vector<float>& vMarketPrice, vector<long>& vMarketVol, int winsize)
+{
+	int iMarket = 0;
+	std::vector<double> vMatch;
+
+	for (size_t ii = 0; ii < vFirmVol.size(); ++ii){
+		if (vFirmVol[ii] % 100 == 0)
+			continue;
+		bool found = false;
+		double tmp;
+		
+		for (size_t jj = iMarket; jj < vMarketVol.size(); ++jj){
+			if (vMarketVol[jj] % 100 == 0)
+				continue;
+			long long diffTime = vMarketTimeStamp[jj] - vFirmTimeStamp[ii];
+			if (diffTime > winsize)
+				break; //wait for vFirm to catch up
+			if (diffTime < -winsize){
+				iMarket = jj+1;
+				continue;
+			}
+			if (vMarketPrice[jj] == vFirmPrice[ii]&&vMarketVol[jj] == vFirmVol[ii]){
+				if (!found){					
+					tmp = double(diffTime);
+					found = true;
+				}
+				else{
+					found = false;
+					break;
+				}
+			}
+		}
+		if (found)
+			vMatch.push_back(tmp);
+	}
+
+	return GaussianPara(mean(vMatch),variance(vMatch),vMatch.size());	
+}
+
+double normal_pdf(double x, double mu, double sigma)
+{
+	return 1. / sqrt(3.14159 * 2 * sigma) *exp(-0.5*(x - mu)*(x - mu) / sigma);
+}
+
+GaussianPara EM_estimator(vector<vector<double> >& tmpTD,long nRecord)
+{
+	vector<double> allData;
+	for (size_t ii = 0; ii < tmpTD.size(); ++ii){
+		for (size_t jj = 1; jj < tmpTD[ii].size(); ++jj){
+			allData.push_back(tmpTD[ii][jj]);
+		}
+	}
+
+	long N = allData.size();
+	double p = nRecord*1.0 / N;
+	double p_n = 1 - p;
+
+	double mu_n = mean(allData);
+	double sigma_n = variance(allData);
+
+	double mu = mu_n / 5;
+	double sigma = sigma_n / 5;
+
+	vector<double> pdf_n(allData.size(),0);
+	vector<double> pdf(allData.size(),0);
+	vector<double> ti(allData.size(), 0);
+	while (true){
+		double ti_sum=0;
+		for (size_t ii = 0; ii < allData.size(); ++ii){
+			pdf_n[ii] = normal_pdf(allData[ii], mu_n, sigma_n);
+			pdf[ii] = normal_pdf(allData[ii], mu, sigma);
+			ti[ii] = pdf[ii] * p / (pdf[ii] * p + pdf_n[ii] * p_n);
+			ti_sum += ti[ii];
+		}
+		double old_mu = mu;
+		mu = 0;
+		mu_n = 0;
+		sigma = 0;
+		sigma_n = 0;
+
+		for (size_t ii = 0; ii < allData.size(); ++ii){
+			mu += ti[ii] * allData[ii];
+			mu_n += (1 - ti[ii])*allData[ii];
+		}
+		mu /= ti_sum;
+		mu_n /= (N - ti_sum);
+		for (size_t ii = 0; ii < allData.size();++ii){
+			sigma += ti[ii] * (allData[ii] - mu)*(allData[ii] - mu);
+			sigma_n += ti[ii] * (allData[ii] - mu_n)*(allData[ii] - mu_n);
+		}
+		sigma /= ti_sum;
+		sigma_n /= (N - ti_sum);
+		p = ti_sum / N;
+		p_n = 1 - p;
+
+		if (fabs(old_mu - mu) < 0.00001)
+			break;
+	}
+
+	return GaussianPara(mu, sigma, N);
+}
+void alignwrapper(std::vector<TRADE>& vFirm, std::vector<TRADE>& vMarket, vector<MATCH>& output, int winsize)
+{
+	vector<long long> vFirmTimeStamp;
+	vector<float> vFirmPrice;
+	vector<long> vFirmVol; 
+	vector<string> vFirmID;
+	vector<long long> vMarketTimeStamp;
+	vector<float> vMarketPrice;
+	vector<long> vMarketVol;
+	vector<string> vMarketID;
+	vector<size_t> vFirmInx;
+	vector<size_t> vMarketInx;
+	vector<double> vTimeDiff;
+
+	for (size_t ii = 0; ii < vFirm.size(); ++ii){
+		vFirmTimeStamp.push_back(vFirm[ii].timestamp);
+		vFirmPrice.push_back(vFirm[ii].price);
+		vFirmVol.push_back(vFirm[ii].volume);
+		vFirmID.push_back(vFirm[ii].ID);
+	}
+	for (size_t ii = 0; ii < vMarket.size();++ii){
+		vMarketTimeStamp.push_back(vMarket[ii].timestamp);
+		vMarketPrice.push_back(vMarket[ii].price);
+		vMarketVol.push_back(vMarket[ii].volume);
+		vMarketID.push_back(vMarket[ii].ID);
+	}
+	align(vFirmTimeStamp, vFirmPrice, vFirmVol, vFirmID,vMarketTimeStamp, vMarketPrice, vMarketVol,  vMarketID, vFirmInx, vMarketInx, vTimeDiff, winsize);
+
+	output.clear();
+	for (size_t ii = 0; ii < vFirmInx.size(); ++ii){
+		output.push_back(MATCH(vFirmInx[ii], vMarketInx[ii], vTimeDiff[ii]));
+	}
+}
+
+
+
+void align(vector<long long>& vFirmTimeStamp, vector<float>& vFirmPrice,vector<long>& vFirmVol,vector<string>& vFirmID,
+	vector<long long>& vMarketTimeStamp,vector<float>& vMarketPrice,vector<long>& vMarketVol,vector<string>& vMarketID,
+	vector<size_t>& vFirmInx,vector<size_t>& vMarketInx,vector<double>& vTimeDiff,int winsize)
+/*
+It is the caller's responsibility to make the size of these vectors appropriately matched. 
+Matching the firm's trades vFirm with the market's trades, the market match must be within the a window of [-winsize,winsize] of the firm's trade
+Before calling this function, we need to make sure the Firm's trading records and the market trades are from the same exchange*/
+{
+	
+	
+	GaussianPara gPara = oddMatch(vFirmTimeStamp,vFirmPrice,vFirmVol, vMarketTimeStamp,vMarketPrice,vMarketVol, winsize);
+
+	vector<vector<size_t> > candidates;
+	vector<vector<double> > timeDiff;
+
+	size_t p = 0; //Initialized to be pointed at the beginning of market data, p points to the first record to whom there is still some firm trade can be mapped
+
+	long nRecord = 0;
+	for (size_t ii = 0; ii < vFirmTimeStamp.size(); ++ii){
+		vector<size_t> tmpCandidates(1, -1); // tmporary candidate
+		vector<double> tmpTD(1,winsize*2); //temporary time difference
+		for (size_t jj = p; jj < vMarketTimeStamp.size(); ++jj){
+			double diff = vMarketTimeStamp[jj] - vFirmTimeStamp[ii];
+			if (diff > winsize)
+				break;
+			if (diff < -winsize){
+				p = jj+1;
+				continue;
+			}
+			if (vMarketPrice[jj] == vFirmPrice[ii] && vMarketVol[jj] == vFirmVol[ii]){
+				tmpCandidates.push_back(jj);
+				tmpTD.push_back(diff);
+			}
+		}
+		candidates.push_back(tmpCandidates);
+		timeDiff.push_back(tmpTD);
+		if (tmpTD.size() > 1)
+			nRecord += 1;
+	}
+
+	if (gPara.nLen < 5)
+		gPara = EM_estimator(timeDiff, nRecord);
+	
+	alignFuncForward(candidates, timeDiff, gPara.mu, gPara.sigma, vFirmInx,vMarketInx,vTimeDiff);
+}
+
+
+void alignFuncForward(vector<vector<size_t> >& candidates, vector<vector<double> >& timeDiff, double mu, double sigma, vector<size_t>& vFirmInx,vector<size_t>& vMarketInx,vector<double>& vTimeDiff)
+{
+	vector<vector<size_t> > backtrack;
+	vector<vector<double> > score;
+	vector<vector<double> > diffPDF;
+
+	for (size_t ii = 0; ii < timeDiff.size(); ++ii){
+		vector<double> tmp;
+		for (size_t jj = 0; jj < timeDiff[ii].size(); ++jj){
+			tmp.push_back((timeDiff[ii][jj] - mu)*(timeDiff[ii][jj] - mu));
+		}
+		diffPDF.push_back(tmp);
+	}
+
+	for (size_t ii = 0; ii < candidates.size(); ++ii){
+		backtrack.push_back(vector<size_t>(candidates[ii].size(), -1));
+		score.push_back(vector<double>(candidates[ii].size(), 1e200));
+	}
+
+	for (size_t ii = 0; ii < candidates[0].size(); ++ii){
+		score[0][ii] = diffPDF[0][ii];
+	}
+
+	for (size_t ii = 0; ii < candidates.size() - 1; ++ii){
+		for (size_t jj = 0; jj < candidates[ii].size(); ++jj){
+			for (size_t kk = 0; kk < candidates[ii + 1].size(); ++kk){
+				if (candidates[ii + 1][kk] == -1 || candidates[ii][jj] == -1 || candidates[ii + 1][kk] > candidates[ii][jj]){
+					double newscore = score[ii][jj] + diffPDF[ii + 1][kk];
+					if (newscore < score[ii + 1][kk]){
+						score[ii + 1][kk] = newscore;
+						backtrack[ii + 1][kk] = jj;
+					}
+				}
+			}
+		}
+	}
+
+	size_t lenscore = score.size();
+	double bestscore = 1e100;
+	int index = -1;
+	for (size_t ii = 0; ii < score[lenscore - 1].size();++ii){
+		if (score[lenscore - 1][ii] < bestscore){
+			bestscore = score[lenscore - 1][ii];
+			index = ii;
+		}
+	}
+
+	vFirmInx.clear();
+	vMarketInx.clear();
+	vTimeDiff.clear();
+
+	//int pt = lenscore - 1;
+	for (int pt = lenscore - 1; pt >= 0;--pt){
+		if (candidates[pt][index] != -1){
+			vFirmInx.push_back(pt);
+			vMarketInx.push_back(candidates[pt][index]);
+			vTimeDiff.push_back(timeDiff[pt][index]);
+		}
+		index = backtrack[pt][index];
+	}
+	
+}
+
+void readData(const string& filename, vector<TRADE>& vData)
+{
+	string line;
+	ifstream f(filename.c_str());
+	if (f.is_open()){
+		while (getline(f, line)){
+			stringstream ss(line);
+			TRADE tmp;
+			ss >> tmp.timestamp >> tmp.price >> tmp.volume >> tmp.ID;
+			vData.push_back(tmp);
+		}
+		f.close();
+	}
+}
+
+void test(){
+	vector<TRADE> vFirm;
+	vector<TRADE> vMarket;
+
+	clock_t begin = clock();
+	readData(string("./firm.csv"), vFirm);
+	readData(string("./market.csv"), vMarket);
+	//readData("c:\\alignment\\firm.csv", vFirm);
+	//readData("c:\\alignment\\market.csv", vMarket);
+	
+	clock_t endpoint1 = clock();
+
+	vector<MATCH> output;
+	alignwrapper(vFirm, vMarket, output);
+	clock_t endpoint2 = clock();
+
+	double rtime1 = double(endpoint1 - begin) / CLOCKS_PER_SEC;
+	double rtime2 = double(endpoint2 - endpoint1) / CLOCKS_PER_SEC;
+	cout << "Reading file takes " << rtime1 << " seconds" << endl;
+	cout << "Alignment takes " << rtime2 << " seconds" << endl;
+
+	ofstream ofile("output.csv");
+	ofile << "FirmPrice,FirmVolume,FirmTime,FirmTradeID,MarketPrice,MarketVolume,MarketTime,MarketTradeID,TimeDiff\n";
+	for (size_t ii = 0; ii < output.size(); ++ii){
+		size_t ixMarket = output[ii].iMarket;
+		size_t ixFirm = output[ii].iFirm;
+		ofile << vFirm[ixFirm].price << "," << vFirm[ixFirm].volume << "," << vFirm[ixFirm].timestamp << "," << vFirm[ixFirm].ID;
+		if (ixMarket == -1)
+			ofile << ",,,,,\n";
+		else{
+			
+			ofile << "," << vMarket[ixMarket].price << "," << vMarket[ixMarket].volume << "," << vMarket[ixMarket].timestamp << "," << vMarket[ixMarket].ID << "," << output[ii].timeDiff << endl;
+			//cout  << "," << vMarket[ixMarket].price << "," << vMarket[ixMarket].volume << "," << vMarket[ixMarket].timestamp << "," << vMarket[ixMarket].ID << "," << output[ii].timeDiff << endl;
+		}
+	}
+	ofile.close();
+}
+
+
