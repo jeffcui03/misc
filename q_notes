@@ -1,1 +1,9 @@
+#This is ~hal@example.com/hal/q/env shell script
+
+export HALQ=${HALQ:=~hal@example.com}
+export QHOME=${HALQ}/q/version/4.0
+export QINIT=${HALQ}/q/sys/q.q
+export Q=${HALQ}/q/Q
+
+
 
