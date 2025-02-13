@@ -1,9 +1,58 @@
-#This is ~hal@example.com/hal/q/env shell script
+#This is the start of ~hal@example.com/hal/q/env shell script
 
 export HALQ=${HALQ:=~hal@example.com}
 export QHOME=${HALQ}/q/version/4.0
 export QINIT=${HALQ}/q/sys/q.q
 export Q=${HALQ}/q/Q
+
+f=${HALQ}/q/lic/$(hostname)
+if   [ -e ${f}:2  ]; then k=2;
+elif [ -e ${f}:4  ]; then k=4;
+elif [ -e ${f}:6  ]; then k=6;
+elif [ -e ${f}:8  ]; then k=8;
+elif [ -e ${f}:12 ]; then k=12;
+else echo "Unable to find license dir: ${f}:[n]";
+fi
+export QLIC=${f}:$k QCORES=$k
+
+
+qcores(){
+ [ $# -eq 0 ] && k=$QCORES || k=$1  # optional 1st arg: count of licensed cores, else set to env variable QCORES
+ a=($(/bin/lscpu | /bin/grep 'NUMA node[0-9]'|/bin/awk '{print $NF}')) #array of NUMA nodes
+ m=${a[(($RANDOM%${#a[@]}))]}                                          #pick random NUMA node
+ c=($(echo $m | /bin/awk -F '[-,]' '{print $1,$2}'))                   #array of start & end core
+ n=$((1+${c[1]}-${c[0]}))                                              #number of cores on node
+ if [ $n -gt $k ]; then                                                #if more cores per node than licensed
+  i=$(( $RANDOM % (($n-$k+1)) ))                                       # random offset for 1st cpu
+  echo "$((${c[0]}+$i))-$((${c[0]}+$i+$k-1))"                          # cpu range: start-end
+ else                                                                  # if licensed cores >= cores per node
+  echo "${c[0]}-${c[1]}"                                               # use full range of NUMA node
+ fi
+}
+
+
+ulimit -n $(ulimit -n -H)  # set max open file limit
+unalias q &> /dev/null
+qbind() { echo /usr/bin/numactl --all --interleave=all --physcpubind=$(qcores) ${QHOME}/l64/q; }
+if [ -f /usr/bin/rlwrap ]; then
+ q() { /usr/bin/rlwrap $(qbind) "${@}"; }
+else
+ q() { $(qbind) "${@}"; }
+fi
+declare -fx qcores qbind q
+
+#end of example q/env script
+
+
+===============================================================================================================
+Convert symbol from an enum array to symbol array
+==============================================================================================================
+dt:2019.08.01
+symbolsTraded:exec symbol from select distinct symbol from order where date=dt
+ev:"i"$symbolsTraded
+symbolsTradedList:rsym ev    
+show count symbolsTradedList
+
 
 
 
