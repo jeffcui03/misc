@@ -130,4 +130,41 @@ select from t1 where windowdistinct>1
 
 
 
+q)d:`:/opt/q  /leading colon tells q the symbol is a file handle
+q)key d       /key in this case is like “ls” without overhead of system call
+`#q.q.BKP.2016-12-01#`LICENSE.ffi`README-3.4.txt`README-3.5.txt`README.ffi`RE..
 
+q)0N 1#(` sv d,)'[key d]
+:/opt/q/#q.q.BKP.2016-12-01#
+:/opt/q/LICENSE.ffi
+:/opt/q/README-3.4.txt
+:/opt/q/README-3.5.txt
+..
+
+So maybe a simple utility function can take a list of dates and return a dictionary of tables found by date, etc.
+In the past, I’ve created some minimal set of utilities in a ${QHOME}/q.q file that gets loaded automatically with each q session so that basic functions don’t have to be rewritten in each script.
+e.g. reserve the “.sys” namespace for utilities like writing log messages
+
+q)\d .sys
+q.sys)msg:{v:("dv"$'.z.P),$[10h=type x,:();enlist x;x]; -2@" "sv@[v;where not 10h=type'[v];string];}
+q.sys)\d .
+
+then the user scripts get simpler and all the logging goes to stderr, standard date/time display, does some basic number to string converting, etc.
+
+q).sys.msg"start of job"
+2023.07.14 11:49:44 start of job
+
+q).sys.msg("mean";0.5;"std dev:";4.55)
+2023.07.14 12:02:20 mean 0.5 std dev: 4.55
+
+.  As long as things take more than 100 milliseconds, there’s room for study and improvement.
+Also relative timings are useful to get a feel for speed overall and kdb’s particular optimal paths.
+
+The system command: \ts or \ts:n is very useful for quick timings and improving intuition.
+https://code.kx.com/q/basics/syscmds/#ts-time-and-space
+
+
+bitscan.org
+etherscan.org
+chainanalysis.com 
+trmlabs.com
