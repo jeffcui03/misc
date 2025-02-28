@@ -1,3 +1,5 @@
+https://www.qforbeginners.com/home
+
 #This is the start of ~hal@example.com/hal/q/env shell script
 
 export HALQ=${HALQ:=~hal@example.com}
