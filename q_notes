@@ -1,4 +1,180 @@
 https://www.qforbeginners.com/home
+https://www.version1.com/en-us/blog/kdb-iterators-for-beginners/
+
+
+*Each : 
+  funcion each list_of_xarags 
+  i.e. avg
+*Each-both(')
+  function '[list_of_xargs, list_of_yargs]
+
+q)tickerSyms:`APPL`AMZN`GOOG`MSFT
+q)prices:116.85 3221.66 1556.0 208.64
+q)tickerSyms,'prices
+`APPL 116.85
+`AMZN 3221.66
+`GOOG 1556f
+`MSFT 208.64
+
+q),'[tickerSyms;prices]
+`APPL 116.85
+`AMZN 3221.66
+`GOOG 1556f
+`MSFT 208.64
+
+
+Each-prior(':)
+  function `:[collection_arguments]
+q)prices:103.2 103.21 103.22 103.15 102.15 101.95
+q)\P 2 // Set display precision to 2 s.f.
+q){100*(x-y)%y}':[prices]
+0n 0.0097 0.0097 -0.068 -0.97 -0.2
+NOTE: x value will always be null on the first pass as there is no previous element in the list.
+
+For/Do
+
+function/[no_iterations;initial_input]
+
+Fibonacci 
+n the Fibonacci example below the initial input is a list (0, 1). The function sums the last 2 elements of the list and appends it to the end of the list. 
+The new list is used as the input in the next iteration, this is repeated 6 more times. The scan example below returns the result of each iteration, making it easier to see what the iterator is doing, this can be helpful when debugging.
+q){x,sum -2#x}\[7;0 1]
+0 1
+0 1 1
+0 1 1 2
+0 1 1 2 3
+0 1 1 2 3 5
+0 1 1 2 3 5 8
+0 1 1 2 3 5 8 13
+0 1 1 2 3 5 8 13 21
+q){x,sum -2#x}/[7;0 1]
+0 1 1 2 3 5 8 13 21
+
+
+While
+
+function/[while_condition; initial_input]
+
+In the example below an initial value of 1 is passed into a function that triples the input. 
+The function will repeat, passing the result onto the next iteration as long as the “while_condition” is true. The scan example below shows each intermediary.
+
+q){x*3}\[{x<15};1]
+1 3 9 27
+
+q){x*3}/[{x<15};1]
+27
+
+
+Converage
+function/[innital_input]
+
+
+If the number of iterations or a condition is not supplied, the function will repeat until the result converges. In other words, the function will run using the output of the previous iteration until the ‘x’ value repeats itself.  Below example shows a multi-level nested list in kdb+, we can use over (/) in conjunction with raze to converge on a flat list.
+
+q)nestedList:(1;(2;(3;4;5));(6;7);8;enlist 9)
+q)nestedList
+1
+(2;3 4 5)
+6 7
+8
+,9
+q)raze nestedList
+1
+2
+3 4 5
+6
+7
+8
+9
+q)raze raze nestedList
+1 2 3 4 5 6 7 8 9
+q)raze/[nestedList]
+1 2 3 4 5 6 7 8 9
+q)raze/[nestedList]~raze raze nestedList
+1b
+
+Scan or Over
+
+q){x+y}\[0;1 2 3 4]
+1 3 6 10
+
+
+In this example of scan/over we can see the atomic z argument provided being extrapolated throughout each iteration, similar to previous explained with each-both.
+
+q){x+y+z}\[5 6;1 2 3;10]
+16 17
+28 29
+41 42
+
+
+x_args:   y_args: z_args: function:               result:
+5 6          1     10        (5 6) +1 +10         16 17
+16 17        2     10        (16 17) + 2 +10      28 29
+28 29        3     10        (28 29) + 3 + 10     41 42 
+
+==============
+
+getnbbo:{[d;s;st;et]
+  st:09:30^st;et:16:00^et;
+  t:{[d;st;et;s]
+    -1"calculating NBBO for ",string[d]," ",string s;
+    if[0=count t:select ex:value bmpid,bprice,sprice,bqty,sqty,time:extime from bbo_cons where date=d,ticker=s,extime within (st;et),not 0=0^bprice,not 0=0^sprice,not and[0=0^bqty;0=0^sqty],not .2<abs (sprice-bprice)%sprice;
+      :()
+    ];
+    if[1<count t;
+      f:first t:scan[nbboscan;t];
+      t:flip _[1;t][;1];
+      t:([] time:f[`time],t 4;bprice:f[`bprice],t 0;sprice:f[`sprice],t 1;bqty:f[`bqty],t 2;sqty:f[`sqty],t 3;bexch:enlist[enlist f`ex],t 5;sexch:enlist[enlist f`ex],t 6;bexchqty:enlist[enlist f`bqty],t 7;sexchqty:enlist[enlist f`sqty],t 8)
+    ];
+    $[`bexch in cols t;
+      select ticker:s,time,bprice,sprice,bqty,sqty,bexch,sexch,bexchqty,sexchqty from t;
+      select ticker:s,time,bprice,sprice,bqty,sqty from t
+    ]
+  }[d;st;et]peach s;
+  t:raze t where not ()~/:t;
+  -1"garbage collecting";
+  .Q.gc[];
+  t
+ }
+nbboscan:{[x;y]
+  d:
+  $[99=type x;
+    enlist[x`ex]!enlist x`bprice`sprice`bqty`sqty;
+    first x
+  ];
+  d[y`ex]:y`bprice`sprice`bqty`sqty;
+  bexch:key[d] where value[d][;0]=maxbid:max value[d][;0];
+  bexchqty:value[d][;2] where value[d][;0]=maxbid;
+  sexch:key[d] where value[d][;1]=minask:min value[d][;1];
+  sexchqty:value[d][;3] where value[d][;1]=minask;
+  (d;(maxbid;minask;sum bexchqty;sum sexchqty;y`time;bexch;sexch;bexchqty;sexchqty))
+ }
+
+spreadoutliers:{[d;s;st;et;n] /date,symbols,n
+  st:09:30^st;et:16:00^et;
+  t:getnbbo[d;s;st;et];
+  tavg:select avgsprd:avg sprice-bprice,devsprd:dev sprice-bprice by ticker from t;
+  select from t where (sprice-bprice)>n*tavg[([] ticker);`devsprd]
+ }
+
+\
+
+t:getnbbo[2015.06.01;`AMZN`MSFT`WWE`LC;13:15:11;13:15:20]
+t:getnbbo[2015.06.01;`AMZN`MSFT`WWE`LC;0N;0N]
+
+/average and standard deviation spread
+tavg:select avgsprd:avg sprice-bprice,devsprd:dev sprice-bprice by ticker from t
+
+outliers:spreadoutliers[2015.06.01;`AMZN`MSFT`WWE`LC;11:00;11:15;2]
+outliers:spreadoutliers[2015.06.01;`AMZN`MSFT`WWE`LC;0N;0N;2] /defaults start time to 09:30, end time to 16:00
+
+
+============
+
+
+
+
+
 
 #This is the start of ~hal@example.com/hal/q/env shell script
 
