@@ -1,3 +1,24 @@
+Troubleshooting Tips?
+
+Do not know what this code means to do.  
+t:flip _[1;t][;1];
+
+Use the following sample table and "piecemeal" the code
+q)t: ([] ex: `BLANK`NYSE`NASDAW`AMEX; bprice:  0 100 200 300; sprice: 0 300 200 100)
+
+q)t: flip t
+q)t
+ex    | BLANK NYSE NASDAW AMEX
+bprice| 0     100  200    300
+sprice| 0     300  200    100
+q)_ [1;t]
+bprice| 0 100 200 300
+sprice| 0 300 200 100
+q)_ [1;t][;1]
+bprice| 100
+sprice| 300
+
+
 https://www.qforbeginners.com/home
 https://www.version1.com/en-us/blog/kdb-iterators-for-beginners/
 "q for Gods Whitepaper Series (Edition 11)" by First Derivative, which is about "Efficient use of Adverbs"
