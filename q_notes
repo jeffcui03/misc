@@ -362,7 +362,7 @@ Also relative timings are useful to get a feel for speed overall and kdb’s par
 The system command: \ts or \ts:n is very useful for quick timings and improving intuition.
 https://code.kx.com/q/basics/syscmds/#ts-time-and-space
 
-
+https://www.qforbeginners.com/knowledge-base/joins/as-of-joins/wj
 bitscan.org
 etherscan.org
 chainanalysis.com 
