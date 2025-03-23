@@ -1,5 +1,34 @@
 Troubleshooting Tips?
 
+/q)type <var> 0h =>This is a mixed list and you need to "raze"
+/q)type <var>[0] 9h =>This is single type list and no need to "raze" 
+q)select count i by side from trades where transtime<2024.08.05D05:45:00, symbol=`ABC, exectype in (`$"FILL";`$"PARTIAL FILL")
+side| x
+----| --
+BUY | 75
+SELL| 75
+q)dollar_tbl:select trade_dollar:execprice*execqty by side from trades where transtime>2024.08.05D01:45:00, transtime.hh<4, symbol=`ABC exectype in (`$"FILL";`$"PARTIAL FILL")
+q)dollar_buy: exec trade_dollar from dollar_tbl where side=`BUY
+q)type dollar_buy
+0h
+q)type dollar_buy[0]
+9h
+q)+/ [raze exec trade_dollar from dollar_tbl where side=`BUY]
+10542.77
+q)+/ [raze exec trade_dollar from dollar_tbl where side=`SELL]
+10542.77
+
+#1.Time Column in nbbo and trades tables have to be of same type
+#  Update datatype from  Timestamp("p") to Timespan("n")
+#2. Rename columns that have same names in both tables with xcol
+
+q)abc_trades:update "n"$time from nvda_trades
+q)abc_trades:`time`side`dest`buypx`sellpx`tradepx xcol abc_trades
+q)abc_aj:aj[`time;adc_trades;abc_nbbo]
+
+
+
+
 Do not know what this code means to do.  
 t:flip _[1;t][;1];
 
