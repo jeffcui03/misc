@@ -389,8 +389,9 @@ q).sys.msg("mean";0.5;"std dev:";4.55)
 Also relative timings are useful to get a feel for speed overall and kdb’s particular optimal paths.
 
 The system command: \ts or \ts:n is very useful for quick timings and improving intuition.
-https://code.kx.com/q/basics/syscmds/#ts-time-and-space
 
+https://code.kx.com/q/basics/syscmds/#ts-time-and-space
+https://thinqkdb.wordpress.com/and-general-application/
 https://www.qforbeginners.com/knowledge-base/joins/as-of-joins/wj
 bitscan.org
 etherscan.org
