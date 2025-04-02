@@ -124,3 +124,119 @@ void readData(const string& filename, vector<TRADE>& vData);
 void test();
 #endif
 
+
+https://www.otcmarkets.com/market-data/reference-and-pricing-data/end-of-day-data
+1.Retrieving data from WRDS
+Wharton Research Data Services (WRDS) maintains a SQL database with the data accessible via a script stored on the WRDS server: otc
+
+> cat ~/otc
+
+#!/usr/local/bin/python
+# retrieve OTC data from otc_endofday.endofday table for date given as yyyy-mm-dd on command line
+import contextlib,sys,wrds
+with contextlib.redirect_stdout(None):
+ db=wrds.Connection()
+q = (
+ 'select '
+ '    closingbestbiddate                as date,'
+ '    secid                             as id, '
+ '    compid                            as company, '
+ '    symbol                            as symbol, '
+ '    class                             as class, '
+ '    cusip                             as cusip, '
+ '    securitystatus                    as status, '
+ '    venue                             as venue, '
+ '    tiername                          as tier, '
+ '    sectype                           as sectype, '
+ '    issue                             as name, '
+ '    dad_pal                           as sponsor, '
+ '    closingbestbid                    as bid, '
+ '    closingbestask                    as ask, '
+ '    closingbestaskdate                as askdate, '
+ '    closinginsidebidprice             as bestbid, '
+ '    closinginsidebidpricedate         as bestbiddate, '
+ '    closinginsideaskprice             as bestask, '
+ '    closinginsideaskpricedate         as bestaskdate, '
+ '    openprice                         as open, '
+ '    lowprice                          as low, '
+ '    highprice                         as high, '
+ '    lastprice                         as close, '
+ '    sharevolume                       as volume, '
+ '    dollarvol                         as dollarvolume, '
+ '    tradecount                        as tradecount, '
+ '    mmidcount                         as markets, '
+ '    bfcmmid                           as quotes, '
+ '    caveatemptor                      as beware, '
+ '    shoflag                           as regsho, '
+ '    rule3210flag                      as rule3210, '
+ '    shortintvol                       as short, '
+ '    shortinterestdate                 as shortdate, '
+ '    sharesoutstandingasofdate         as sharesdate, '
+ '    sharesoutstanding                 as shares '
+ '  from otc_endofday.endofday '
+ ' where closingbestbiddate=' + "'" + sys.argv[1] + "'")
+
+print(db.raw_sql(q).to_csv(index=False,sep='\t'))
+
+2. Cron job
+0  22 * * 1-5 . $ENV; $Q ${HALQ}/otc/q/load.q    -q -main 1 -retrieve 1 &>> ${HALQ}/otc/log/load.log
+
+3.Read Arguments from command line
+arg:((`main;      0b;                   (); "set true for main task to be run on load");
+     (`retrieve;  0b;                   (); "set true to retrieve OTC data from WRDS for date range");
+     (`start;     0Nd;                  (); "start date - use 2 weeks prior to latest data on WRDS if null");
+     (`end;       0Nd;                  (); "end date - use date of latest data on WRDS if null");
+     (`config;   .sys.halq`otc`config;  (); "dir with configuration files");
+     (`db;       .sys.halq`otc`db;      (); "ultimate database directory");
+     (`source;   .sys.halq`otc`source;  (); "dir with source files from WRDS");
+     (`stage;    .sys.halq`otc`stage;   (); "staging directory(same file system as db)"));
+x:.sys.arg[arg;"OTC database loader";.sys.halq`otc`q`help]
+
+
+/ -----------------------------------------------------------------------------
+/     move: given job args x and staging dir y, move db->v,  y->db, remove v
+/  history: return saved history or empty prototype given data type
+/   merges: merge saved history with new records for each file in date range
+/    stage: save column definitions & exchange information, move to target db
+/     main: main task retrieves files if flag set, applies & saves changes
+/ -----------------------------------------------------------------------------
+name:{` sv `otc,x}
+move:{.sys.rename[x`db]v:.sys.tempdir x`stage; .sys.rename[y]x`db; .sys.rmdir v}
+history:{$[h~key h:` sv (x`db;name y);get h;empty y]}
+
+price1:{[x;w;d]
+ .sys.msg("Initializing price table in staging directory for prices prior to";d);
+ a:` sv x[`db],s:name`dailyprice; p:(` sv w,s,`)set e:empty`price;
+ if[n:$[()~key a; 0; sum"j"$d>a`date]; {[p;a;n;c]@[p;c;:;n#a c]}[p;a;n]'[cols e]]; p}
+
+price2:{[x;w;p]
+ d:max p`date; a:` sv x[`db],name`dailyprice;
+ .sys.msg("Re-sorting daily prices -> table sorted by id then date");
+ if[n:$[()~key a; 0; sum"j"$d<a`date]; {[p;a;n;c]@[p;c;,;neg[n]#a c]}[p;a;n]'[p`.d]];
+ @[p;`date;`p#]; i:iasc p`id; w:` sv w,name`price; @[w;`.d;:;p `.d];
+ {[w;p;i;c]@[w;c;:;p[c]i]}[w;p;i]'[p`.d]; @[w;`id;`p#];}
+ 
+merges:{[x;f]
+ c:("sscc*";1#"\t")0:` sv x[`config],`otc.txt;
+ w:.sys.tempdir x`stage; p:price1[x;w;min f`date]; h!:history[x]'[h:`id`short`shares];
+ {(` sv x,name z)set y z}[w;h]'[key h:mergeday[c;p]/[h;f`date;f`file]];
+ price2[x;w;p]; (` sv w,name`col)set c; w}
+
+stage:{[x;w]
+ .sys.chmod[x`db]w; /set staging dir permissions to match db/
+ .sys.msg("Moving staging dir: ";last` vs w;"->";1_string x`db); move[x;w]}
+
+main:{
+ x:check x;
+ if[x`retrieve; saverange x];
+ if[not n:count f:files x; .sys.msg"No source files found, exiting"; :()];
+ r:(first;last)@\:f`date;
+ .sys.msg (-2*n=1)_(n;"OTC daily file",(n>1)#"s"; "for"; r 0; "-"; r 1);
+ stage[x]merges[x;f]; .sys.msg"OTC update completed"}
+
+if[x`main; exit .sys.trap[main]x]
+
+
+
+
+
