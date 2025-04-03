@@ -392,6 +392,11 @@ The system command: \ts or \ts:n is very useful for quick timings and improving 
 
 https://code.kx.com/q/basics/syscmds/#ts-time-and-space
 https://thinqkdb.wordpress.com/and-general-application/
+q)l:(1 2 3;4 5;9 8 7 10)
+q)l@1
+4 5
+q)l@'1
+2 5 8
 https://www.qforbeginners.com/knowledge-base/joins/as-of-joins/wj
 bitscan.org
 etherscan.org
